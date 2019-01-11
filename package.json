@@ -7,6 +7,7 @@
     "email": "algernon@keyboard.io"
   },
   "homepage": "https://github.com/keyboardio/teensy-loader.js",
+  "main": "lib",
   "scripts": {
     "build": "babel src/lib -d lib",
     "lint": "eslint src/lib",
