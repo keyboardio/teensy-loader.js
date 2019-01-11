@@ -18,7 +18,6 @@
 import usb from "usb";
 import fs from "fs";
 import intel_hex from "intel-hex";
-import util from "util";
 
 class TeensyLoader {
   constructor() {
@@ -124,10 +123,10 @@ class TeensyLoader {
   }
 
   async __open(vid, pid) {
-    const setTimeoutPromise = util.promisify(setTimeout);
+    const delay = ms => new Promise(res => setTimeout(res, ms));
 
     while (!this.___open(vid, pid)) {
-      await setTimeoutPromise(250, true);
+      await delay(250);
     }
   }
 
