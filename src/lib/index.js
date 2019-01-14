@@ -139,8 +139,10 @@ class TeensyLoader {
 
     device.open();
     try {
-      if (device.interfaces[0].isKernelDriverActive()) {
-        device.interfaces[0].detachKernelDriver();
+      if (process.platform != "win32") {
+        if (device.interfaces[0].isKernelDriverActive()) {
+          device.interfaces[0].detachKernelDriver();
+        }
       }
       device.interfaces[0].claim();
     } catch (_) {
