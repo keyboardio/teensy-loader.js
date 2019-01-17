@@ -144,7 +144,9 @@ class TeensyLoader {
           device.interfaces[0].detachKernelDriver();
         }
       }
-      device.interfaces[0].claim();
+      if (process.platform != "darwin") {
+        device.interfaces[0].claim();
+      }
     } catch (_) {
       return null;
     }
