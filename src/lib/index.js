@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import usb from "usb";
+import { usb, findByIds } from "usb";
 import fs from "fs";
 import intel_hex from "intel-hex";
 
@@ -133,7 +133,7 @@ class TeensyLoader {
   ___open(vid, pid) {
     this.__close();
 
-    let device = usb.findByIds(vid, pid);
+    let device = findByIds(vid, pid);
 
     if (!device) return null;
 
