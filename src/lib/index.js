@@ -1,5 +1,5 @@
 /* teensy-loader.js -- ...
- * Copyright (C) 2019  Keyboard.io, Inc.
+ * Copyright (C) 2019-2022  Keyboard.io, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,41 +15,38 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import { usb, findByIds } from "usb";
+import { findByIds } from "usb";
 import fs from "fs";
 import intel_hex from "intel-hex";
 
-class TeensyLoader {
-  constructor() {
-    this.write_info = {
+const TeensyLoader = ((props_) => {
+  const props = Object.assign(
+    {},
+    {
       code_size: 32256,
-      block_size: 128
-    };
-  }
+      block_size: 128,
+    },
+    props_
+  );
 
-  __loadFile(filename) {
-    this.__hex = intel_hex.parse(fs.readFileSync(filename));
-  }
+  const loadFile = (filename) => {
+    return intel_hex.parse(fs.readFileSync(filename));
+  };
 
-  __hexBytesInRange(addr) {
-    const { block_size, code_size } = this.write_info;
+  const hexBytesInRange = (hex, addr) => {
+    const { block_size, code_size } = props;
     for (let i = addr; i < addr + block_size && i < code_size; i++) {
-      if (this.__hex[i] != 255) return true;
+      if (hex[i] != 0xff) return true;
     }
     return false;
-  }
+  };
 
-  __isMemoryBlank(addr) {
-    const { block_size, code_size } = this.write_info;
+  const isMemoryBlank = (hex, addr) => {
+    return !hexBytesInRange(hex, addr);
+  };
 
-    for (let i = addr; i < addr + block_size && i < code_size; i++) {
-      if (this.__hex.data[i] != 0xff) return false;
-    }
-    return true;
-  }
-
-  __getHexData(addr) {
-    const { block_size, code_size } = this.write_info;
+  const getHexData = (hex, addr) => {
+    const { block_size, code_size } = props;
 
     if (addr < 0 || addr + block_size > code_size) {
       return Buffer.alloc(block_size, 0xff);
@@ -60,104 +57,15 @@ class TeensyLoader {
     data[1] = (addr >> 8) & 0xff;
 
     for (let i = addr; i < addr + block_size && i < code_size; i++) {
-      data[i - addr + 2] = this.__hex.data[i];
+      data[i - addr + 2] = hex.data[i];
     }
 
     return data;
-  }
+  };
 
-  __reboot() {
-    const buf = Buffer.alloc(this.write_info.block_size + 2, 0);
-    buf[0] = 0xff;
-    buf[1] = 0xff;
-    buf[2] = 0xff;
-    this.__write(buf);
-  }
-
-  async upload(vid, pid, filename, progress) {
-    const { code_size, block_size } = this.write_info;
-
-    this.__loadFile(filename);
-
-    await this.__open(vid, pid);
-
-    let first_block = true;
-    for (
-      let addr = 0;
-      addr < code_size && addr < this.__hex.data.length;
-      addr += block_size
-    ) {
-      if (!first_block && !this.__hexBytesInRange(addr)) {
-        continue;
-      }
-      if (!first_block && this.__isMemoryBlank(addr)) continue;
-
-      if (progress) {
-        progress(addr, this.__hex.data.length);
-      }
-
-      const buf = this.__getHexData(addr);
-      await this.__write(buf);
-      first_block = false;
-    }
-    if (progress) {
-      progress(this.__hex.data.length, this.__hex.data.length);
-    }
-
-    await this.__reboot();
-    await this.__close();
-  }
-
-  async __close() {
-    if (!this.__device) return;
-
-    return new Promise(resolve => {
-      this.__device.interfaces[0].release(true, () => {
-        setTimeout(() => {
-          this.__device.close();
-          this.__device = null;
-          resolve();
-        }, 1000);
-      });
-    });
-  }
-
-  async __open(vid, pid) {
-    const delay = ms => new Promise(res => setTimeout(res, ms));
-
-    while (!this.___open(vid, pid)) {
-      await delay(250);
-    }
-  }
-
-  ___open(vid, pid) {
-    this.__close();
-
-    let device = findByIds(vid, pid);
-
-    if (!device) return null;
-
-    device.open();
-    try {
-      if (process.platform != "win32") {
-        if (device.interfaces[0].isKernelDriverActive()) {
-          device.interfaces[0].detachKernelDriver();
-        }
-      }
-      if (process.platform != "darwin") {
-        device.interfaces[0].claim();
-      }
-    } catch (_) {
-      return null;
-    }
-
-    this.__device = device;
-    return device;
-  }
-
-  async __write(buffer) {
+  const write = async (device, buffer) => {
     return new Promise((resolve, reject) => {
-      this.__device.controlTransfer(0x21, 9, 0x0200, 0, buffer, (_, error) => {
+      device.controlTransfer(0x21, 9, 0x0200, 0, buffer, (_, error) => {
         if (error) {
           reject(error);
         } else {
@@ -165,9 +73,99 @@ class TeensyLoader {
         }
       });
     });
-  }
-}
+  };
 
-const loader = new TeensyLoader();
+  const close = async (device) => {
+    if (!device) return;
 
-export { loader as default };
+    return new Promise((resolve) => {
+      device.interfaces[0].release(true, () => {
+        setTimeout(() => {
+          device.close();
+          resolve();
+        }, 1000);
+      });
+    });
+  };
+
+  const _open = async (vid, pid) => {
+    const device = await findByIds(vid, pid);
+
+    if (!device) return null;
+
+    await device.open();
+    try {
+      if (process.platform != "win32") {
+        if (device.interfaces[0].isKernelDriverActive()) {
+          await device.interfaces[0].detachKernelDriver();
+        }
+      }
+      if (process.platform != "darwin") {
+        await device.interfaces[0].claim();
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return device;
+  };
+
+  const open = async (vid, pid) => {
+    const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    let device = null;
+    while ((device = await _open(vid, pid)) == null) {
+      await close(device);
+      await delay(250);
+    }
+    return device;
+  };
+
+  const reboot = async (device) => {
+    const buf = Buffer.alloc(props.block_size + 2, 0);
+    buf[0] = 0xff;
+    buf[1] = 0xff;
+    buf[2] = 0xff;
+
+    await write(device, buf);
+    return await close(device);
+  };
+
+  const upload = async (device, filename, progress) => {
+    const { code_size, block_size } = props;
+    const hex = await loadFile(filename);
+
+    let first_block = true;
+    for (
+      let addr = 0;
+      addr < code_size && addr < hex.data.length;
+      addr += block_size
+    ) {
+      if (!first_block && !hexBytesInRange(hex, addr)) {
+        continue;
+      }
+      if (!first_block && isMemoryBlank(hex, addr)) continue;
+
+      if (progress) {
+        progress(addr, hex.data.length);
+      }
+
+      const buf = getHexData(hex, addr);
+      await write(device, buf);
+      first_block = false;
+    }
+    if (progress) {
+      progress(hex.data.length, hex.data.length);
+    }
+
+    return device;
+  };
+
+  return {
+    open: open,
+    upload: upload,
+    reboot: reboot,
+  };
+})();
+
+export { TeensyLoader as default };

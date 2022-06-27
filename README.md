@@ -10,17 +10,35 @@ without calling out to any external tools. It currently only supports
 ```javascript
 import TeensyLoader from "teensy-loader";
 
-TeensyLoader.upload(0x16C0, 0x0478, "./firmware.hex", (addr, size) => {
+const device = TeensyLoader.open(0x16c0, 0x0478);
+
+TeensyLoader.upload(device , "./firmware.hex", (addr, size) => {
   process.stdout.write(".");
 });
+
+TeensyLoader.reboot(device);
 ```
 
 ## API
 
-### `TeensyLoader.upload(vendorId, productId, firmwareFile[, progress])`
+### `TeensyLoader.open(vendorId, productId)`
 
-Waits for the device with `vendorId` and `productId` to appear, then opens it
-and uploads the firmware from `firmwareFile` (an Intel Hex format file). If the
-optional `progress` callback is present, it will be called for every block
-written, with two arguments: the current address being written, and the size of
-the firmware.
+Waits for the device with `vendorId` and `productId` to appear, and opens it.
+Returns the opened device.
+
+### `TeensyLoader.upload(device, firmwareFile[, progress])`
+
+Uploads the firmware from `firmwareFile` (an Intel Hex format file) to the
+previously opened `device`. If the optional `progress` callback is present, it
+will be called for every block written, with two arguments: the current address
+being written, and the size of the firmware.
+
+Returns `device`.
+
+### `TeensyLoader.reboot(device)`
+
+Reboots an opened device.
+
+### `TeensyLoader.close(device)`
+
+Closes an opened device, without rebooting it.
