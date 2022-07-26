@@ -127,8 +127,12 @@ const TeensyLoader = ((props_) => {
     buf[1] = 0xff;
     buf[2] = 0xff;
 
-    await write(device, buf);
-    return await close(device);
+	  try {
+		  await write(device, buf);
+      return close(device);
+	  } catch (_) {
+		  // ignore
+		}
   };
 
   const upload = async (device, filename, progress) => {
