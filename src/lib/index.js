@@ -65,7 +65,7 @@ const TeensyLoader = ((props_) => {
 
   const write = async (device, buffer) => {
     return new Promise((resolve, reject) => {
-      device.controlTransfer(0x21, 9, 0x0200, 0, buffer, (_, error) => {
+      device.controlTransfer(0x21, 9, 0x0200, 0, buffer, (error, _) => {
         if (error) {
           reject(error);
         } else {
